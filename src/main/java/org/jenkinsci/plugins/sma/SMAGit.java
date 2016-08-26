@@ -4,6 +4,7 @@ import org.eclipse.jgit.api.DiffCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.lib.ObjectLoader;
 import org.eclipse.jgit.lib.ObjectReader;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
@@ -196,7 +197,16 @@ public class SMAGit
 
         if (treeWalk != null)
         {
-            data = reader.open(treeWalk.getObjectId(0)).getBytes();
+            ObjectLoader loader = reader.open(treeWalk.getObjectId(0));
+            if(loader.isLarge()){
+                //handle large object.
+                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+                loader.copyTo(outputStream);
+                data = outputStream.toByteArray();
+            }
+            else {
+                data = loader.getBytes();
+            }
         }
         else
         {
