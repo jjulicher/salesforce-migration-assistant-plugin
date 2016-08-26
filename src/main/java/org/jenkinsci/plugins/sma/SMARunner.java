@@ -44,6 +44,10 @@ public class SMARunner
         String jobName = jobVariables.get("JOB_NAME");
         String buildNumber = jobVariables.get("BUILD_NUMBER");
 
+        if(buildCause == null){
+            buildCause = "Unknown";
+        }
+
         if (jobVariables.containsKey("GIT_PREVIOUS_SUCCESSFUL_COMMIT"))
         {
             previousCommit = jobVariables.get("GIT_PREVIOUS_SUCCESSFUL_COMMIT");
