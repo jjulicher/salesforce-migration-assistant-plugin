@@ -62,13 +62,10 @@ public class SMARunner
             deployAll = Boolean.valueOf(jobVariables.get("SMA_DEPLOY_ALL_METADATA"));
         }
 
-        if (jobVariables.containsKey("SMA_PREVIOUS_COMMIT_OVERRIDE"))
-        {
-            if (!jobVariables.get("SMA_PREVIOUS_COMMIT_OVERRIDE").isEmpty())
-            {
+        if (jobVariables.containsKey("SMA_PREVIOUS_COMMIT_OVERRIDE")
+            && !jobVariables.get("SMA_PREVIOUS_COMMIT_OVERRIDE").isEmpty()){
                 shaOverride = true;
                 previousCommit = jobVariables.get("SMA_PREVIOUS_COMMIT_OVERRIDE");
-            }
         }
 
         // Configure using pull request logic
