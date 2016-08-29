@@ -108,17 +108,17 @@
         <dependency>
             <groupId>com.force.api</groupId>
             <artifactId>force-wsc</artifactId>
-            <version>35.2.0</version>
+            <version>37.0.3</version>
         </dependency>
         <dependency>
             <groupId>com.force.api</groupId>
             <artifactId>force-partner-api</artifactId>
-            <version>35.0.0</version>
+            <version>37.0.3</version>
         </dependency>
         <dependency>
             <groupId>com.force.api</groupId>
             <artifactId>force-metadata-api</artifactId>
-            <version>35.0.0</version>
+            <version>37.0.3</version>
         </dependency>
     </dependencies>
 </project>
