@@ -62,7 +62,7 @@ public class SMAGit {
             RevCommit targetCommit = new RevWalk(repository).parseCommit(branchId);
             this.prevCommit = targetCommit.getName();
         } else if (smaMode == Mode.STD) {
-            this.prevCommit = getPreviousCommit(repository, this.curCommit, diffAgainst);
+            this.prevCommit = getPreviousCommit(diffAgainst);
         }
 
         if (smaMode != Mode.INI)
@@ -84,7 +84,7 @@ public class SMAGit {
 
     }
 
-    private String getPreviousCommit(Repository repository, String curCommit, String preCommit) throws IOException, GitAPIException
+    private String getPreviousCommit(String preCommit) throws IOException, GitAPIException
     {
         if (preCommit == null || preCommit.isEmpty()) {
             Iterable<RevCommit> revCommitIterable = git.log().call();
