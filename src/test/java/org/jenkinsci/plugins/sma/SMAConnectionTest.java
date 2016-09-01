@@ -40,7 +40,7 @@ public class SMAConnectionTest
         String apex = "public class TestApex {}";
         StringBuilder sb = new StringBuilder();
         sb.append("<ApexClass xmlns=\"http://soap.sforce.com/2006/04/metadata\">");
-        sb.append("<apiVersion>34.0</apiVersion>");
+        sb.append("<apiVersion>37.0</apiVersion>");
         sb.append("<status>Active</status>");
         sb.append("</ApexClass>");
 
