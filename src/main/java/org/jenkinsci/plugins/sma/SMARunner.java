@@ -44,6 +44,8 @@ public class SMARunner
         String jobName = jobVariables.get("JOB_NAME");
         String buildNumber = jobVariables.get("BUILD_NUMBER");
 
+        replaceVariablesInMap(jobVariables);
+
         if(buildCause == null){
             buildCause = "Unknown";
         }
@@ -304,5 +306,22 @@ public class SMARunner
         }
 
         return rollbackLocation;
+    }
+
+    private void replaceVariablesInMap(EnvVars jobVariables){
+        for(String key: jobVariables.keySet()){
+            replaceVariablesInMap(jobVariables, key);
+        }
+    }
+
+    private void replaceVariablesInMap(EnvVars jobVariables, String jobKey){
+        String withVariables = jobVariables.get(jobKey);
+        if(withVariables != null && withVariables.contains("$")){
+            for(String key: jobVariables.keySet()){
+                if(withVariables.contains("$" + key)){
+                    jobVariables.put(jobKey, withVariables.replace(key, jobVariables.get(key)));
+                }
+            }
+        }
     }
 }
