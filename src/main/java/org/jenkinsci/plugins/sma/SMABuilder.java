@@ -151,6 +151,7 @@ public class SMABuilder extends Builder
             }
             else
             {
+                SMAUtility.writeZip(deploymentPackage, currentJob.getRollbackLocation());
                 smaDeployResult = sfConnection.getComponentFailures();
 
                 if (!TestLevel.valueOf(getTestLevel()).equals(TestLevel.NoTestRun))
