@@ -86,15 +86,14 @@ public class SMAGit {
 
     private String getPreviousCommit(Repository repository, String curCommit, String preCommit) throws IOException, GitAPIException
     {
-        if (preCommit != null && !preCommit.isEmpty()) {
-            return preCommit;
-        } else {
+        if (preCommit == null || preCommit.isEmpty()) {
             Iterable<RevCommit> revCommitIterable = git.log().call();
             RevWalk walk = ((RevWalk) revCommitIterable);
             walk.next(); //current commit;
             RevCommit prevCommit = walk.next(); //previous commit;
             return prevCommit.getName();
         }
+        return preCommit;
     }
 
     /**
