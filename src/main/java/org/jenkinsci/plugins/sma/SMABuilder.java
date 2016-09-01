@@ -57,6 +57,8 @@ public class SMABuilder extends Builder
         boolean JOB_SUCCESS = false;
 
         PrintStream writeToConsole = listener.getLogger();
+        writeToConsole.println("Logging in with user: " + this.username);
+
         List<ParameterValue> parameterValues = new ArrayList<ParameterValue>();
 
         try
