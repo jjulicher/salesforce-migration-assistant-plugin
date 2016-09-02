@@ -130,6 +130,29 @@ public class SMAGitTest
         assertEquals(expectedDelete.size(), deletedContents.size());
     }
 
+    @Test
+    public void testDiffWithExclude() throws Exception
+    {
+        Map<String, byte[]> expectedDelete = new HashMap<String, byte[]>();
+        //expectedDelete.put("src/classes/deleteThis.cls", contents.getBytes());
+
+        Map<String, byte[]> expectedMods = new HashMap<String, byte[]>();
+        //expectedMods.put("src/pages/modifyThis.page", contents.getBytes());
+
+        Map<String, byte[]> expectedAdds = new HashMap<String, byte[]>();
+        //This should now be excluded so don't put in hashmap.
+        //expectedAdds.put("src/triggers/addThis.trigger", contents.getBytes());
+
+        git = new SMAGit(gitDir, newSha, oldSha, "addThis.trigger|modifyThis.page|deleteThis.cls", SMAGit.Mode.STD);
+
+        Map<String, byte[]> deletedContents = git.getDeletedMetadata();
+        Map<String, byte[]> modifiedContents = git.getUpdatedMetadata();
+        Map<String, byte[]> addedContents = git.getNewMetadata();
+
+        assertEquals(expectedAdds.size(), addedContents.size());
+        assertEquals(expectedMods.size(), modifiedContents.size());
+        assertEquals(expectedDelete.size(), deletedContents.size());
+    }
     /**
      * Test the overloaded constructors.
      *

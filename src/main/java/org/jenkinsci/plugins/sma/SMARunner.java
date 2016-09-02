@@ -43,6 +43,7 @@ public class SMARunner
         String pathToWorkspace = jobVariables.get("WORKSPACE");
         String jobName = jobVariables.get("JOB_NAME");
         String buildNumber = jobVariables.get("BUILD_NUMBER");
+        String excludeRegex = jobVariables.get("EXCLUDE_REGEX");
 
         replaceVariablesInMap(jobVariables);
 

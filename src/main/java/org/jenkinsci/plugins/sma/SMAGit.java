@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 /**
  * Wrapper for git interactions using jGit.
@@ -31,23 +32,38 @@ public class SMAGit {
     private Repository repository;
     private List<DiffEntry> diffs;
     private String prevCommit, curCommit;
+    private Pattern _excludePattern;
 
     private static final Logger LOG = Logger.getLogger(SMAGit.class.getName());
 
+    public SMAGit(String pathToWorkspace,
+                  String curCommit,
+                  String diffAgainst,
+                  Mode smaMode) throws Exception
+    {
+        this(pathToWorkspace, curCommit, diffAgainst, null, smaMode);
+    }
     /**
      * Creates an SMAGit instance
      *
      * @param pathToWorkspace
      * @param curCommit
      * @param diffAgainst
+     * @param excludeRegex
      * @param smaMode
      * @throws Exception
      */
     public SMAGit(String pathToWorkspace,
                   String curCommit,
                   String diffAgainst,
+                  String excludeRegex,
                   Mode smaMode) throws Exception
     {
+
+        if(excludeRegex != null && !excludeRegex.isEmpty()){
+            _excludePattern = Pattern.compile(excludeRegex);
+        }
+
         String pathToRepo = pathToWorkspace + "/.git";
         File repoDir = new File(pathToRepo);
         FileRepositoryBuilder builder = new FileRepositoryBuilder();
@@ -109,7 +125,9 @@ public class SMAGit {
         for (DiffEntry diff : diffs) {
             if (diff.getChangeType().toString().equals("ADD")) {
                 String item = SMAUtility.checkMeta(diff.getNewPath());
-                if (!additions.containsKey(item) && item.contains(SOURCEDIR)) {
+                if (!additions.containsKey(item)
+                        && item.contains(SOURCEDIR)
+                        && shouldNotBeExcluded(item)) {
                     additions.put(diff.getNewPath(), getBlob(diff.getNewPath(), curCommit));
                 }
             }
@@ -118,6 +136,9 @@ public class SMAGit {
         return additions;
     }
 
+    private boolean shouldNotBeExcluded(String item){
+        return _excludePattern == null ? true : !_excludePattern.matcher(item).find();
+    }
     /**
      * Returns all of the items that were deleted in the current commit.
      *
@@ -129,7 +150,8 @@ public class SMAGit {
         for (DiffEntry diff : diffs) {
             if (diff.getChangeType().toString().equals("DELETE")) {
                 String item = SMAUtility.checkMeta(diff.getOldPath());
-                if (!deletions.containsKey(item) && item.contains(SOURCEDIR)) {
+                if (!deletions.containsKey(item) && item.contains(SOURCEDIR)
+                        && shouldNotBeExcluded(item)) {
                     deletions.put(diff.getOldPath(), getBlob(diff.getOldPath(), prevCommit));
                 }
             }
@@ -150,7 +172,8 @@ public class SMAGit {
         for (DiffEntry diff : diffs) {
             if (diff.getChangeType().toString().equals("MODIFY")) {
                 String item = SMAUtility.checkMeta(diff.getNewPath());
-                if (!modifiedMetadata.containsKey(item) && item.contains(SOURCEDIR)) {
+                if (!modifiedMetadata.containsKey(item) && item.contains(SOURCEDIR)
+                        && shouldNotBeExcluded(item)) {
                     modifiedMetadata.put(diff.getNewPath(), getBlob(diff.getNewPath(), curCommit));
                 }
             }
