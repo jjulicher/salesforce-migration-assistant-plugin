@@ -13,11 +13,10 @@ import org.eclipse.jgit.treewalk.CanonicalTreeParser;
 import org.eclipse.jgit.treewalk.TreeWalk;
 
 import java.io.*;
-import java.util.HashMap;
+import java.util.*;
 
-import java.util.List;
-import java.util.Map;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -33,16 +32,16 @@ public class SMAGit {
     private List<DiffEntry> diffs;
     private String prevCommit, curCommit;
     private Pattern _excludePattern;
-
+    private Set<String> excludedFiles = new TreeSet<String>();
     private static final Logger LOG = Logger.getLogger(SMAGit.class.getName());
 
     public SMAGit(String pathToWorkspace,
                   String curCommit,
                   String diffAgainst,
-                  Mode smaMode) throws Exception
-    {
+                  Mode smaMode) throws Exception {
         this(pathToWorkspace, curCommit, diffAgainst, null, smaMode);
     }
+
     /**
      * Creates an SMAGit instance
      *
@@ -57,10 +56,9 @@ public class SMAGit {
                   String curCommit,
                   String diffAgainst,
                   String excludeRegex,
-                  Mode smaMode) throws Exception
-    {
+                  Mode smaMode) throws Exception {
 
-        if(excludeRegex != null && !excludeRegex.isEmpty()){
+        if (excludeRegex != null && !excludeRegex.isEmpty()) {
             _excludePattern = Pattern.compile(excludeRegex);
         }
 
@@ -72,8 +70,7 @@ public class SMAGit {
 
         this.curCommit = getCurrentCommit(repository, curCommit);
 
-        if (smaMode == Mode.PRB)
-        {
+        if (smaMode == Mode.PRB) {
             ObjectId branchId = repository.resolve("refs/remotes/origin/" + diffAgainst);
             RevCommit targetCommit = new RevWalk(repository).parseCommit(branchId);
             this.prevCommit = targetCommit.getName();
@@ -81,27 +78,26 @@ public class SMAGit {
             this.prevCommit = getPreviousCommit(diffAgainst);
         }
 
-        if (smaMode != Mode.INI)
-        {
+        if (smaMode != Mode.INI) {
             getDiffs();
         }
     }
 
-    private String getCurrentCommit(Repository repository, String curCommit) throws IOException
-    {
-        if (curCommit != null && !curCommit.isEmpty())
-        {
+    public Set<String> getExcludedFiles() {
+        return excludedFiles;
+    }
+
+    private String getCurrentCommit(Repository repository, String curCommit) throws IOException {
+        if (curCommit != null && !curCommit.isEmpty()) {
             return curCommit;
-        } else
-            {
+        } else {
             Ref head = repository.getRef("refs/heads/master");
             return head.getName();
         }
 
     }
 
-    private String getPreviousCommit(String preCommit) throws IOException, GitAPIException
-    {
+    private String getPreviousCommit(String preCommit) throws IOException, GitAPIException {
         if (preCommit == null || preCommit.isEmpty()) {
             Iterable<RevCommit> revCommitIterable = git.log().call();
             RevWalk walk = ((RevWalk) revCommitIterable);
@@ -118,8 +114,7 @@ public class SMAGit {
      * @return The ArrayList containing all of the additions in the current commit.
      * @throws IOException
      */
-    public Map<String, byte[]> getNewMetadata() throws Exception
-    {
+    public Map<String, byte[]> getNewMetadata() throws Exception {
         Map<String, byte[]> additions = new HashMap<String, byte[]>();
 
         for (DiffEntry diff : diffs) {
@@ -136,9 +131,19 @@ public class SMAGit {
         return additions;
     }
 
-    private boolean shouldNotBeExcluded(String item){
-        return _excludePattern == null ? true : !_excludePattern.matcher(item).find();
+    private boolean shouldNotBeExcluded(String item) {
+        if(_excludePattern == null){
+            return true;
+        }
+        Matcher matcher = _excludePattern.matcher(item);
+
+        boolean found = matcher.find();
+        if (found) {
+            excludedFiles.add(item);
+        }
+        return !found;
     }
+
     /**
      * Returns all of the items that were deleted in the current commit.
      *

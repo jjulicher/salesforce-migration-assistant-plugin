@@ -72,6 +72,8 @@ public class SMABuilder extends Builder
             SMAUtility.printMetadataToConsole(listener, currentJob.getPackageMembers());
             SMAPackage destructiveChanges;
 
+            printExcludedFiles(writeToConsole, currentJob);
+
             if (currentJob.getDeployAll() || currentJob.getDestructionMembers().isEmpty())
             {
                 destructiveChanges = new SMAPackage(new ArrayList<SMAMetadata>(), true);
@@ -175,6 +177,14 @@ public class SMABuilder extends Builder
         writeToConsole.println(smaDeployResult);
 
         return JOB_SUCCESS;
+    }
+
+    private void printExcludedFiles(PrintStream writeToConsole, SMARunner currentJob) {
+        writeToConsole.println("***********excluded*******************");
+        for(String excluded : currentJob.getExcludedFiles()){
+            writeToConsole.println(excluded);
+        }
+        writeToConsole.println("***********excluded finished *********");
     }
 
     public boolean getValidateEnabled()

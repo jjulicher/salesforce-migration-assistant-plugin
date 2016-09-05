@@ -3,10 +3,7 @@ package org.jenkinsci.plugins.sma;
 import hudson.EnvVars;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Logger;
 
 /**
@@ -85,7 +82,7 @@ public class SMARunner
         // Configure using the previous successful commit for this job
         else
         {
-            git = new SMAGit(pathToWorkspace, currentCommit, previousCommit, SMAGit.Mode.STD);
+            git = new SMAGit(pathToWorkspace, currentCommit, previousCommit, excludeRegex, SMAGit.Mode.STD);
         }
 
         rollbackLocation = pathToWorkspace + "/sma/rollback" + jobName + buildNumber + ".zip";
@@ -99,6 +96,10 @@ public class SMARunner
     public Boolean getDeployAll()
     {
         return deployAll;
+    }
+
+    public Set<String> getExcludedFiles(){
+        return git.getExcludedFiles();
     }
 
     /**
