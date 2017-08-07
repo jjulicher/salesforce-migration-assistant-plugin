@@ -6,6 +6,11 @@
         <version>1.616</version>
     </parent>
 
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+    </properties>
+
     <artifactId>salesforce-migration-assistant-plugin</artifactId>
     <name>Salesforce Migration Assistant</name>
     <version>3.1-SNAPSHOT</version>
@@ -88,6 +93,16 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                </configuration>
+            </plugin>
+        </plugins>
     </build>
 
     <dependencies>
