@@ -27,17 +27,17 @@ import java.util.regex.Pattern;
  * Wrapper for git interactions using jGit.
  */
 public class SMAGit {
-    public enum Mode { STD, INI, PRB }
 
+    public enum Mode {STD, INI, PRB}
+
+    private static final Logger LOG = Logger.getLogger(SMAGit.class.getName());
     private final String SOURCEDIR = "src/";
-
     private Git git;
     private Repository repository;
     private List<DiffEntry> diffs;
-    private String prevCommit, curCommit;
+    private String previousCommit, currentCommit;
     private Pattern _excludePattern;
-    private Set<String> excludedFiles = new TreeSet<String>();
-    private static final Logger LOG = Logger.getLogger(SMAGit.class.getName());
+    private Set<String> excludedFiles = new TreeSet<>();
 
     public SMAGit(String pathToWorkspace,
                   String curCommit,
@@ -49,13 +49,14 @@ public class SMAGit {
     /**
      * Creates an SMAGit instance
      *
-     * @param pathToWorkspace
+     * @param pathToWorkspace the path to the workspace.
      * @param diffAgainst
      * @param excludeRegex
      * @param smaMode
      * @throws Exception
      */
     public SMAGit(String pathToWorkspace,
+                  String currentCommit,
                   String diffAgainst,
                   String excludeRegex,
                   Mode smaMode) throws Exception {
@@ -64,11 +65,10 @@ public class SMAGit {
             _excludePattern = Pattern.compile(excludeRegex);
         }
 
-        String pathToRepo = pathToWorkspace + "/.git";
-        File repoDir = new File(pathToRepo);
+        File repoDir = new File(pathToWorkspace + "/.git");
         FileRepositoryBuilder builder = new FileRepositoryBuilder();
-        repository = builder.setGitDir(repoDir).readEnvironment().build();
-        git = new Git(repository);
+        this.repository = builder.setGitDir(repoDir).readEnvironment().build();
+        this.git = new Git(repository);
 
         updateLocalRefSpecs(git);
         this.currentCommit = retrieveCommitId(repository, Constants.HEAD);
@@ -85,12 +85,7 @@ public class SMAGit {
         }
     }
 
-    public Set<String> getExcludedFiles() {
-        return excludedFiles;
-    }
-
-   /**
-     *
+    /**
      * @param repository
      * @param revStr
      * @return
@@ -101,10 +96,8 @@ public class SMAGit {
         RevCommit commit = new RevWalk(repository).parseCommit(id);
         return commit.getName();
     }
-    
 
     /**
-     *
      * @param git Git
      * @throws Exception
      */
@@ -116,6 +109,10 @@ public class SMAGit {
         }
     }
 
+    public Set<String> getExcludedFiles() {
+        return excludedFiles;
+    }
+
     /**
      * Returns all of the items that were added in the current commit.
      *
@@ -123,7 +120,7 @@ public class SMAGit {
      * @throws IOException
      */
     public Map<String, byte[]> getNewMetadata() throws Exception {
-        Map<String, byte[]> additions = new HashMap<String, byte[]>();
+        Map<String, byte[]> additions = new HashMap<>();
 
         for (DiffEntry diff : diffs) {
             if (diff.getChangeType().toString().equals("ADD")) {
@@ -137,27 +134,13 @@ public class SMAGit {
         return additions;
     }
 
-    private boolean shouldNotBeExcluded(String item) {
-        if(_excludePattern == null){
-            return true;
-        }
-        Matcher matcher = _excludePattern.matcher(item);
-
-        boolean found = matcher.find();
-        if (found) {
-            excludedFiles.add(item);
-        }
-        return !found;
-    }
-
     /**
      * Returns all of the items that were deleted in the current commit.
      *
      * @return The ArrayList containing all of the items that were deleted in the current commit.
      */
-    public Map<String, byte[]> getDeletedMetadata() throws Exception
-    {
-        Map<String, byte[]> deletions = new HashMap<String, byte[]>();
+    public Map<String, byte[]> getDeletedMetadata() throws Exception {
+        Map<String, byte[]> deletions = new HashMap<>();
 
         for (DiffEntry diff : diffs) {
             if (diff.getChangeType().toString().equals("DELETE")) {
@@ -179,7 +162,7 @@ public class SMAGit {
      * @throws IOException
      */
     public Map<String, byte[]> getUpdatedMetadata() throws Exception {
-        Map<String, byte[]> modifiedMetadata = new HashMap<String, byte[]>();
+        Map<String, byte[]> modifiedMetadata = new HashMap<>();
 
         for (DiffEntry diff : diffs) {
             if (diff.getChangeType().toString().equals("MODIFY")) {
@@ -199,7 +182,7 @@ public class SMAGit {
      * @return ArrayList containing the items that were modified (old paths).
      */
     public Map<String, byte[]> getOriginalMetadata() throws Exception {
-        Map<String, byte[]> originalMetadata = new HashMap<String, byte[]>();
+        Map<String, byte[]> originalMetadata = new HashMap<>();
 
         for (DiffEntry diff : diffs) {
             if (diff.getChangeType().toString().equals("MODIFY")) {
@@ -225,9 +208,8 @@ public class SMAGit {
         byte[] data;
 
         ObjectId commitId = repository.resolve(commit);
-        ObjectReader reader = null;
-        try {
-            reader = repository.newObjectReader();
+
+        try (ObjectReader reader = repository.newObjectReader()) {
             RevWalk revWalk = new RevWalk(reader);
             RevCommit revCommit = revWalk.parseCommit(commitId);
             RevTree tree = revCommit.getTree();
@@ -238,8 +220,6 @@ public class SMAGit {
             } else {
                 throw new IllegalStateException("Did not find expected file '" + repoItem + "'");
             }
-        } finally {
-            if (null != reader) { reader.close(); }
         }
         return data;
     }
@@ -251,10 +231,9 @@ public class SMAGit {
      * @throws IOException
      */
     public Map<String, byte[]> getAllMetadata() throws Exception {
-        Map<String, byte[]> contents = new HashMap<String, byte[]>();
-        ObjectReader reader = null;
-        try {
-            reader = repository.newObjectReader();
+        Map<String, byte[]> contents = new HashMap<>();
+        try (ObjectReader reader = repository.newObjectReader()) {
+
             ObjectId commitId = repository.resolve(getCurrentCommit());
             RevWalk revWalk = new RevWalk(reader);
             RevCommit commit = revWalk.parseCommit(commitId);
@@ -274,8 +253,6 @@ public class SMAGit {
                     }
                 }
             }
-        } finally {
-            if (null != reader) { reader.close(); }
         }
         return contents;
     }
@@ -293,7 +270,7 @@ public class SMAGit {
     public boolean updatePackageXML(String workspace,
                                     String userName,
                                     String userEmail,
-                                    SMAPackage manifest) throws Exception
+                                    SMAPackage manifest) throws Exception {
         File packageXml;
 
         // Only need to update the manifest if we have additions or deletions
@@ -310,12 +287,9 @@ public class SMAGit {
                 packageXml.createNewFile();
             }
             // Write the manifest to the location of the package.xml in the fs
-            FileOutputStream fos = null;
-            try {
-                fos = new FileOutputStream(packageXml, false);
+
+            try (FileOutputStream fos = new FileOutputStream(packageXml, false)) {
                 fos.write(manifest.getPackage().getBytes());
-            } finally {
-                if (null != fos) { fos.close(); }
             }
             String path = packageXml.getPath();
 
@@ -339,6 +313,19 @@ public class SMAGit {
 
     public String getCurrentCommit() {
         return currentCommit;
+    }
+
+    private boolean shouldNotBeExcluded(String item) {
+        if (_excludePattern == null) {
+            return true;
+        }
+        Matcher matcher = _excludePattern.matcher(item);
+
+        boolean found = matcher.find();
+        if (found) {
+            excludedFiles.add(item);
+        }
+        return !found;
     }
 
     /**
@@ -369,4 +356,8 @@ public class SMAGit {
         tree.reset(reader, head);
         return tree;
     }
+
+
+
+
 }

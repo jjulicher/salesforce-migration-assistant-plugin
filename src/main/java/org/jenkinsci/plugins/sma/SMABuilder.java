@@ -67,36 +67,7 @@ public class SMABuilder extends Builder {
 
         List<ParameterValue> parameterValues = new ArrayList<ParameterValue>();
 
-        try
-        {
-            // Initialize the runner for this job
-            SMARunner currentJob = new SMARunner(build.getEnvironment(listener), prTargetBranch);
-
-            // Build the package and destructiveChanges manifests
-            SMAPackage packageXml = new SMAPackage(currentJob.getPackageMembers(), false);
-            writeToConsole.println("[SMA] Deploying the following metadata:");
-            SMAUtility.printMetadataToConsole(listener, currentJob.getPackageMembers());
-            SMAPackage destructiveChanges;
-
-            printExcludedFiles(writeToConsole, currentJob);
-
-            if (currentJob.getDeployAll() || currentJob.getDestructionMembers().isEmpty())
-            {
-                destructiveChanges = new SMAPackage(new ArrayList<SMAMetadata>(), true);
-            }
-            else
-            {
-                destructiveChanges = new SMAPackage(currentJob.getDestructionMembers(), true);
-                writeToConsole.println("[SMA] Deleting the following metadata:");
-                SMAUtility.printMetadataToConsole(listener, currentJob.getDestructionMembers());
-            }
-
-            // Build the zipped deployment package
-            ByteArrayOutputStream deploymentPackage = SMAUtility.zipPackage(
-                    currentJob.getDeploymentData(),
-                    packageXml,
-                    destructiveChanges
-            );
+        try {
 
             // Initialize the connection to Salesforce for this job
             SMAConnection sfConnection = new SMAConnection(
@@ -121,28 +92,35 @@ public class SMABuilder extends Builder {
                 writeToConsole.println();
             }
             EnvVars jobVariables = build.getEnvironment(listener);
-            SMARunner currentJob = new SMARunner(jobVariables, getPrTargetBranch(), orgSettings);
+            // Initialize the runner for this job
+            SMARunner currentJob = new SMARunner(build.getEnvironment(listener), prTargetBranch, orgSettings);
+
 
             // Build the package and destructiveChanges manifests
             SMAPackage packageXml = new SMAPackage(currentJob.getPackageMembers(), false);
-
             writeToConsole.println("[SMA] Deploying the following metadata:");
             SMAUtility.printMetadataToConsole(listener, currentJob.getPackageMembers());
             SMAPackage destructiveChanges;
 
+            printExcludedFiles(writeToConsole, currentJob);
 
-            SMAPackage destructiveChanges = buildDestructiveChangesPackage(currentJob);
-
-            if (destructiveChanges.getContents().size() > 0) {
+            if (currentJob.getDeployAll() || currentJob.getDestructionMembers().isEmpty()) {
+                destructiveChanges = new SMAPackage(new ArrayList<SMAMetadata>(), true);
+            } else {
+                destructiveChanges = new SMAPackage(currentJob.getDestructionMembers(), true);
                 writeToConsole.println("[SMA] Deleting the following metadata:");
-                SMAUtility.printMetadataToConsole(listener, destructiveChanges.getContents());
+                SMAUtility.printMetadataToConsole(listener, currentJob.getDestructionMembers());
             }
+
             // Build the zipped deployment package
             ByteArrayOutputStream deploymentPackage = SMAUtility.zipPackage(
                     currentJob.getDeploymentData(),
                     packageXml,
                     destructiveChanges
             );
+
+            writeToConsole.println("[SMA] Deploying the following metadata:");
+            SMAUtility.printMetadataToConsole(listener, currentJob.getPackageMembers());
 
             // Deploy to the server
             String[] specifiedTests = null;
@@ -201,9 +179,54 @@ public class SMABuilder extends Builder {
         return JOB_SUCCESS;
     }
 
+    public boolean getValidateEnabled() {
+        return validateEnabled;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public String getSecurityToken() {
+        return securityToken;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public String getServerType() {
+        return serverType;
+    }
+
+    public String getTestLevel() {
+        return testLevel;
+    }
+
+    public String getPrTargetBranch() {
+        return prTargetBranch;
+    }
+
+    public String getRunTestRegex() {
+        return runTestRegex;
+    }
+
+    public String getRunTestManifest() {
+        return runTestManifest;
+    }
+
+    public Boolean getUseCustomSettings() {
+        return useCustomSettings;
+    }
+
+    @Override
+    public DescriptorImpl getDescriptor() {
+        return (DescriptorImpl) super.getDescriptor();
+    }
+
     private void printExcludedFiles(PrintStream writeToConsole, SMARunner currentJob) {
         writeToConsole.println("***********excluded*******************");
-        for(String excluded : currentJob.getExcludedFiles()){
+        for (String excluded : currentJob.getExcludedFiles()) {
             writeToConsole.println(excluded);
         }
         writeToConsole.println("***********excluded finished *********");
@@ -220,24 +243,6 @@ public class SMABuilder extends Builder {
         );
         SMAUtility.writeZip(rollbackPackage, currentJob.getRollbackLocation());
     }
-    
-    public boolean getValidateEnabled()
-    {
-        return validateEnabled;
-    }
-
-    public String getUsername()
-    {
-        return username;
-    }
-
-        ByteArrayOutputStream rollbackPackage = SMAUtility.zipPackage(
-                currentJob.getRollbackData(),
-                rollbackPackageXml,
-                rollbackDestructiveXml
-        );
-        SMAUtility.writeZip(rollbackPackage, currentJob.getRollbackLocation());
-    }
 
     private SMAPackage buildDestructiveChangesPackage(SMARunner currentJob) throws Exception {
         List<SMAMetadata> destructionMembers = new ArrayList<SMAMetadata>();
@@ -246,29 +251,6 @@ public class SMABuilder extends Builder {
         }
         return new SMAPackage(destructionMembers, true);
     }
-
-    public boolean getValidateEnabled() { return validateEnabled; }
-
-    public String getUsername() { return username; }
-
-    public String getSecurityToken() { return securityToken; }
-
-    public String getPassword() { return password; }
-
-    public String getServerType() { return serverType; }
-
-    public String getTestLevel() { return testLevel; }
-
-    public String getPrTargetBranch() { return prTargetBranch; }
-
-    public String getRunTestRegex() { return runTestRegex; }
-
-    public String getRunTestManifest() { return runTestManifest; }
-
-    public Boolean getUseCustomSettings() { return useCustomSettings; }
-
-    @Override
-    public DescriptorImpl getDescriptor() { return (DescriptorImpl) super.getDescriptor(); }
 
     @Extension
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
@@ -290,21 +272,37 @@ public class SMABuilder extends Builder {
             return true;
         }
 
-        public String getDisplayName() { return "Salesforce Migration Assistant"; }
+        public String getDisplayName() {
+            return "Salesforce Migration Assistant";
+        }
 
-        public String getMaxPoll() { return maxPoll; }
+        public String getMaxPoll() {
+            return maxPoll;
+        }
 
-        public String getPollWait() { return pollWait; }
+        public String getPollWait() {
+            return pollWait;
+        }
 
-        public String getRunTestRegex() { return runTestRegex; }
+        public String getRunTestRegex() {
+            return runTestRegex;
+        }
 
-        public String getProxyServer() { return proxyServer; }
+        public String getProxyServer() {
+            return proxyServer;
+        }
 
-        public String getProxyUser() { return proxyUser; }
+        public String getProxyUser() {
+            return proxyUser;
+        }
 
-        public String getProxyPass() { return proxyPass; }
+        public String getProxyPass() {
+            return proxyPass;
+        }
 
-        public Integer getProxyPort() { return proxyPort; }
+        public Integer getProxyPort() {
+            return proxyPort;
+        }
 
         public ListBoxModel doFillServerTypeItems() {
             return new ListBoxModel(

@@ -26,7 +26,7 @@ public class SMAGitTest
     private File modification, modifyMeta;
     private File deletion, deleteMeta;
     private File localPath;
-    private String oldSha, gitDir;
+    private String oldSha, newSha, gitDir;
     private final String contents = "\n";
 
     /**
@@ -83,6 +83,7 @@ public class SMAGitTest
         //Create the second commit
         RevCommit secondCommit = new Git(repository).commit().setMessage("Remove deleteThis. Modify " +
                 "modifyThis. Add addThis.").call();
+        newSha = secondCommit.getName();
 
         gitDir = localPath.getPath();
     }
@@ -116,7 +117,7 @@ public class SMAGitTest
         Map<String, byte[]> expectedAdds = new HashMap<String, byte[]>();
         expectedAdds.put("src/triggers/addThis.trigger", contents.getBytes());
 
-        git = new SMAGit(gitDir, oldSha, SMAGit.Mode.STD);
+        git = new SMAGit(gitDir, newSha, oldSha, SMAGit.Mode.STD);
 
         Map<String, byte[]> deletedContents = git.getDeletedMetadata();
         Map<String, byte[]> modifiedContents = git.getUpdatedMetadata();
@@ -159,7 +160,7 @@ public class SMAGitTest
         expectedContents.put("src/triggers/addThis.trigger", contents.getBytes());
         expectedContents.put("src/triggers/addThis.trigger-meta.xml", contents.getBytes());
 
-        git = new SMAGit(gitDir, null, SMAGit.Mode.INI);
+        git = new SMAGit(gitDir, newSha, null, SMAGit.Mode.INI);
 
         Map<String, byte[]> allMetadata = git.getAllMetadata();
 
@@ -186,7 +187,7 @@ public class SMAGitTest
         cbc.setStartPoint(oldSha);
         cbc.call();
 
-        git = new SMAGit(gitDir, "oldBranch", SMAGit.Mode.PRB);
+        git = new SMAGit(gitDir, newSha, "oldBranch", SMAGit.Mode.PRB);
 
         Map<String, byte[]> allMetadata = git.getAllMetadata();
 
@@ -204,7 +205,7 @@ public class SMAGitTest
         Map<String, byte[]> metadataContents = new HashMap<String, byte[]>();
         List<SMAMetadata> metadata = new ArrayList<SMAMetadata>();
 
-        git = new SMAGit(gitDir, oldSha, SMAGit.Mode.STD);
+        git = new SMAGit(gitDir, newSha, oldSha, SMAGit.Mode.STD);
         metadataContents = git.getUpdatedMetadata();
         metadataContents.putAll(git.getNewMetadata());
 
@@ -242,7 +243,7 @@ public class SMAGitTest
         Map<String, byte[]> metadataContents = new HashMap<String, byte[]>();
         List<SMAMetadata> metadata = new ArrayList<SMAMetadata>();
 
-        git = new SMAGit(gitDir, oldSha, SMAGit.Mode.STD);
+        git = new SMAGit(gitDir, newSha, oldSha, SMAGit.Mode.STD);
         metadataContents = git.getUpdatedMetadata();
         metadataContents.putAll(git.getNewMetadata());
 

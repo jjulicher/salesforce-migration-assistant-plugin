@@ -9,7 +9,6 @@ import java.util.logging.Logger;
 
 /**
  * Class that contains all of the configuration pertinent to the running job
- *
  */
 public class SMARunner {
     private static final Logger LOG = Logger.getLogger(SMARunner.class.getName());
@@ -20,10 +19,10 @@ public class SMARunner {
     private String rollbackLocation;
     private SMAGit git;
     private String pathToWorkspace;
-    private List<SMAMetadata> deployMetadata = new ArrayList<SMAMetadata>();
-    private List<SMAMetadata> deleteMetadata = new ArrayList<SMAMetadata>();
-    private List<SMAMetadata> rollbackMetadata = new ArrayList<SMAMetadata>();
-    private List<SMAMetadata> rollbackAdditions = new ArrayList<SMAMetadata>();
+    private List<SMAMetadata> deployMetadata = new ArrayList<>();
+    private List<SMAMetadata> deleteMetadata = new ArrayList<>();
+    private List<SMAMetadata> rollbackMetadata = new ArrayList<>();
+    private List<SMAMetadata> rollbackAdditions = new ArrayList<>();
 
     /**
      * Wrapper for coordinating the configuration of the running job
@@ -34,10 +33,21 @@ public class SMARunner {
      */
     public SMARunner(EnvVars jobVariables, String prTargetBranch, SMAJenkinsCIOrgSettings orgSettings) throws Exception {
         // Get envvars to initialize SMAGit
-        Boolean shaOverride  = false;
+        Boolean shaOverride = false;
+        currentCommit = jobVariables.get("GIT_COMMIT");
+        Boolean ghprbJob = (jobVariables.get("ghprbSourceBranch") != null);
+        String buildCause = jobVariables.get("BUILD_CAUSE");
         this.pathToWorkspace = jobVariables.get("WORKSPACE");
-        String jobName       = jobVariables.get("JOB_NAME");
-        String buildNumber   = jobVariables.get("BUILD_NUMBER");
+        String jobName = jobVariables.get("JOB_NAME");
+        String buildNumber = jobVariables.get("BUILD_NUMBER");
+        String excludeRegex = jobVariables.get("EXCLUDE_REGEX");
+
+        replaceVariablesInMap(jobVariables);
+
+        if (buildCause == null) {
+            buildCause = "Unknown";
+        }
+
 
         if (null != orgSettings && null != orgSettings.getGitSha1()) {
             previousCommit = orgSettings.getGitSha1();
@@ -46,28 +56,30 @@ public class SMARunner {
         } else {
             deployAll = true;
         }
+
         if (jobVariables.containsKey("SMA_DEPLOY_ALL_METADATA")) {
             deployAll = Boolean.valueOf(jobVariables.get("SMA_DEPLOY_ALL_METADATA"));
         }
+
         if (jobVariables.containsKey("SMA_PREVIOUS_COMMIT_OVERRIDE")
-                && !jobVariables.get("SMA_PREVIOUS_COMMIT_OVERRIDE").isEmpty()
-        ) {
+                && !jobVariables.get("SMA_PREVIOUS_COMMIT_OVERRIDE").isEmpty()) {
             shaOverride = true;
             previousCommit = jobVariables.get("SMA_PREVIOUS_COMMIT_OVERRIDE");
         }
+
         // Configure using pull request logic
         if (!prTargetBranch.isEmpty() && !shaOverride) {
             deployAll = false;
-            git = new SMAGit(pathToWorkspace, prTargetBranch, SMAGit.Mode.PRB);
+            git = new SMAGit(pathToWorkspace, currentCommit, prTargetBranch, SMAGit.Mode.PRB);
             previousCommit = git.getPreviousCommit();
-            
+
         } else if (deployAll) { // Configure for all the metadata
-            git = new SMAGit(pathToWorkspace, null, SMAGit.Mode.INI);
+            git = new SMAGit(pathToWorkspace, currentCommit, null, SMAGit.Mode.INI);
 
         } else { // Configure using the previous successful commit for this job
-            git = new SMAGit(pathToWorkspace, previousCommit, SMAGit.Mode.STD);
+            git = new SMAGit(pathToWorkspace, currentCommit, previousCommit, excludeRegex, SMAGit.Mode.STD);
         }
-        currentCommit    = git.getCurrentCommit();
+        currentCommit = git.getCurrentCommit();
         rollbackLocation = pathToWorkspace + "/sma/rollback" + jobName + buildNumber + ".zip";
     }
 
@@ -76,9 +88,11 @@ public class SMARunner {
      *
      * @return deployAll
      */
-    public Boolean getDeployAll() { return deployAll; }
+    public Boolean getDeployAll() {
+        return deployAll;
+    }
 
-    public Set<String> getExcludedFiles(){
+    public Set<String> getExcludedFiles() {
         return git.getExcludedFiles();
     }
 
@@ -119,7 +133,7 @@ public class SMARunner {
         if (deleteMetadata.isEmpty()) {
             getDestructionMembers();
         }
-        rollbackMetadata = new ArrayList<SMAMetadata>();
+        rollbackMetadata = new ArrayList<>();
         rollbackMetadata.addAll(deleteMetadata);
         rollbackMetadata.addAll(buildMetadataList(git.getOriginalMetadata()));
 
@@ -127,7 +141,7 @@ public class SMARunner {
     }
 
     public List<SMAMetadata> getRollbackAdditions() throws Exception {
-        rollbackAdditions = new ArrayList<SMAMetadata>();
+        rollbackAdditions = new ArrayList<>();
         rollbackAdditions.addAll(buildMetadataList(git.getNewMetadata()));
 
         return rollbackAdditions;
@@ -154,6 +168,58 @@ public class SMARunner {
     }
 
     /**
+     * Returns a String array of all the unit tests that should be run in this job
+     *
+     * @param builder
+     * @return
+     * @throws Exception
+     */
+    public String[] getSpecifiedTests(SMABuilder builder) throws Exception {
+        Set<String> specifiedTestsList = new HashSet<>();
+
+        Set<String> apexClassesToDeploy = SMAMetadata.getApexClasses(deployMetadata);
+        Set<String> allApexClasses = SMAMetadata.getApexClasses(buildMetadataList(git.getAllMetadata()));
+        Map<String, Set<String>> classMapping = getManifestClassMapping(builder);
+
+        for (String className : apexClassesToDeploy) {
+            Set<String> testsForClass = new HashSet<>();
+
+            String testName = getSpecifiedTestsByRegex(className, allApexClasses, builder);
+
+            if (null != testName) {
+                testsForClass.add(testName);
+            }
+            if (null != classMapping) {
+                Set<String> manifestTests = getSpecifiedTestsByManifest(className, classMapping);
+                testsForClass.addAll(manifestTests);
+            }
+            if (testsForClass.size() == 0) {
+                LOG.warning("No test class for " + className + " found");
+                continue;
+            }
+            specifiedTestsList.addAll(testsForClass);
+        }
+        specifiedTestsList.retainAll(allApexClasses);
+
+        SortedSet<String> specifiedTestsListSorted = new TreeSet<>();
+        specifiedTestsListSorted.addAll(specifiedTestsList);
+        return specifiedTestsListSorted.toArray(new String[specifiedTestsListSorted.size()]);
+    }
+
+    public String getRollbackLocation() {
+        File rollbackLocationFile = new File(rollbackLocation);
+
+        if (!rollbackLocationFile.getParentFile().exists()) {
+            rollbackLocationFile.getParentFile().mkdirs();
+        }
+        return rollbackLocation;
+    }
+
+    public String getCurrentCommit() {
+        return this.currentCommit;
+    }
+
+    /**
      * Helper method to find the byte[] contents of given metadata
      *
      * @param metadatas
@@ -162,7 +228,7 @@ public class SMARunner {
      * @throws Exception
      */
     private Map<String, byte[]> getData(List<SMAMetadata> metadatas, String commit) throws Exception {
-        Map<String, byte[]> data = new HashMap<String, byte[]>();
+        Map<String, byte[]> data = new HashMap<>();
 
         for (SMAMetadata metadata : metadatas) {
             data.put(metadata.toString(), metadata.getBody());
@@ -184,7 +250,7 @@ public class SMARunner {
      * @throws Exception
      */
     private List<SMAMetadata> buildMetadataList(Map<String, byte[]> repoItems) throws Exception {
-        List<SMAMetadata> thisMetadata = new ArrayList<SMAMetadata>();
+        List<SMAMetadata> thisMetadata = new ArrayList<>();
 
         for (String repoItem : repoItems.keySet()) {
             SMAMetadata mdObject = SMAMetadataTypes.createMetadataObject(repoItem, repoItems.get(repoItem));
@@ -194,45 +260,6 @@ public class SMARunner {
             }
         }
         return thisMetadata;
-    }
-
-    /**
-     * Returns a String array of all the unit tests that should be run in this job
-     *
-     * @param builder
-     * @return
-     * @throws Exception
-     */
-    public String[] getSpecifiedTests(SMABuilder builder) throws Exception {
-        Set<String> specifiedTestsList = new HashSet<String>();
-
-        Set<String> apexClassesToDeploy = SMAMetadata.getApexClasses(deployMetadata);
-        Set<String> allApexClasses      = SMAMetadata.getApexClasses(buildMetadataList(git.getAllMetadata()));
-        Map<String, Set<String>> classMapping = getManifestClassMapping(builder);
-
-        for (String className : apexClassesToDeploy) {
-            Set<String> testsForClass = new HashSet<String>();
-
-            String testName = getSpecifiedTestsByRegex(className, allApexClasses, builder);
-
-            if (null != testName) {
-                testsForClass.add(testName);
-            }
-            if (null != classMapping) {
-                Set<String> manifestTests = getSpecifiedTestsByManifest(className, classMapping);
-                testsForClass.addAll(manifestTests);
-            }
-            if (testsForClass.size() == 0) {
-                LOG.warning("No test class for " + className + " found");
-                continue;
-            }
-            specifiedTestsList.addAll(testsForClass);
-        }
-        specifiedTestsList.retainAll(allApexClasses);
-
-        SortedSet<String> specifiedTestsListSorted = new TreeSet<String>();
-        specifiedTestsListSorted.addAll(specifiedTestsList);
-        return specifiedTestsListSorted.toArray(new String[specifiedTestsListSorted.size()]);
     }
 
     private Map<String, Set<String>> getManifestClassMapping(SMABuilder builder) {
@@ -257,12 +284,14 @@ public class SMARunner {
     private String getSpecifiedTestsByRegex(String className, Set<String> allApexClasses, SMABuilder builder) {
         String testRegex = builder.getRunTestRegex();
 
-        if (null == testRegex || testRegex.isEmpty()) { return null; }
+        if (null == testRegex || testRegex.isEmpty()) {
+            return null;
+        }
 
         if (className.matches(testRegex)) {
             return className;
         }
-        String[] regexs = new String[] { className + testRegex, testRegex + className };
+        String[] regexs = new String[]{className + testRegex, testRegex + className};
 
         for (String regex : regexs) {
             String testClass = SMAUtility.searchForTestClass(allApexClasses, regex);
@@ -274,16 +303,20 @@ public class SMARunner {
         return null;
     }
 
-    public String getRollbackLocation() {
-        File rollbackLocationFile = new File(rollbackLocation);
-
-        if (!rollbackLocationFile.getParentFile().exists()) {
-            rollbackLocationFile.getParentFile().mkdirs();
+    private void replaceVariablesInMap(EnvVars jobVariables) {
+        for (String key : jobVariables.keySet()) {
+            replaceVariablesInMap(jobVariables, key);
         }
-        return rollbackLocation;
     }
 
-    public String getCurrentCommit() {
-        return this.currentCommit;
+    private void replaceVariablesInMap(EnvVars jobVariables, String jobKey) {
+        String withVariables = jobVariables.get(jobKey);
+        if (withVariables != null && withVariables.contains("$")) {
+            for (String key : jobVariables.keySet()) {
+                if (withVariables.contains("$" + key)) {
+                    jobVariables.put(jobKey, withVariables.replace(key, jobVariables.get(key)));
+                }
+            }
+        }
     }
 }
